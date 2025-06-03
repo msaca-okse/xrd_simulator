@@ -133,12 +133,6 @@ def _diffract(dict):
         del G_0
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
 
-        print(grain_crystal_index[reflection_index[0]].shape)
-        print(i)
-        print(reflection_index[1].shape)
-        print(time_values.shape)
-        print(G_0_reflected[:, 0].shape)
-
         table = pd.DataFrame(
             {
                 "Grain": grain_crystal_index[reflection_index[0]],
@@ -163,6 +157,7 @@ def _diffract(dict):
                 "phase": i,
                 "time": time_values_powder,
                 "abs_G_0": abs_G_0_powder,
+                "bragg_angle": bragg_angles,
             }
         )
 
@@ -202,15 +197,36 @@ def _diffract(dict):
         element_vertices_0, reflections_df["time"].values
     )
 
+
+    reflections_df_powder[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(
+        espherecentroids[reflections_df_powder["Grain"]], reflections_df_powder["time"].values
+    )
+    
+
+
+    center_y, center_z, major_axis, minor_axis = detector.get_intersection_cone(
+        reflections_df_powder[["bragg_angle"]].values,
+        beam.wave_vector,
+        reflections_df_powder[["Source_x", "Source_y", "Source_z"]].values,
+    )
+
+    reflections_df_powder[["center_y", "center_z", "major_axis", "minor_axis"]] = np.column_stack(
+        (center_y, center_z, major_axis, minor_axis)
+    )
+
     reflections_np = (
         reflections_df.values
     )  # We move from pandas to numpy for enhanced speed
+    reflections_np_powder = (
+        reflections_df_powder.values
+    )  # We move from pandas to numpy for enhanced speed
+
     scattering_units = []
 
     if BB_intersection:
         # A Bounding-Box intersection is a simplified way of computing the grains that interact with the beam (to enhance speed),
         # simply considering the beam as a prism and the tets that interact are those whose centroid is contained in the prism.
-
+        print(reflections_df_powder.columns[8])
         reflections_np = reflections_np[
             reflections_np[:, 14] < (beam.vertices[:, 1].max())
         ]  #
@@ -222,6 +238,19 @@ def _diffract(dict):
         ]  #
         reflections_np = reflections_np[
             reflections_np[:, 15] > (beam.vertices[:, 2].min())
+        ]  #
+
+        reflections_np_powder = reflections_np_powder[
+            reflections_np_powder[:, 6] < (beam.vertices[:, 1].max())
+        ]  #
+        reflections_np_powder = reflections_np_powder[
+            reflections_np_powder[:, 6] > (beam.vertices[:, 1].min())
+        ]  #
+        reflections_np_powder = reflections_np_powder[
+            reflections_np_powder[:, 7] < (beam.vertices[:, 2].max())
+        ]  #
+        reflections_np_powder = reflections_np_powder[
+            reflections_np_powder[:, 7] > (beam.vertices[:, 2].min())
         ]  #
 
         for ei in range(reflections_np.shape[0]):
@@ -244,7 +273,7 @@ def _diffract(dict):
 
             scattering_units.append(scattering_unit)
 
-        for ei in range(len(bragg_angles)):
+        for ei in range(reflections_np_powder.shape[0]):
             scattering_unit_powder = ScatteringUnitPowder(
                 ConvexHull(element_vertices[ei]),
                 bragg_angles[ei],  # outgoing bragg angle
@@ -252,13 +281,16 @@ def _diffract(dict):
                 beam.wavelength,
                 beam.polarization_vector,
                 rigid_body_motion.rotation_axis,
-                phases[reflections_np[ei, 1].astype(int)],  # phase
-                reflections_np[ei, 2].astype(int),  # hkl index
+                reflections_np_powder[ei, 2],  # time
+                phases[reflections_np_powder[ei, 1].astype(int)],  # phase
+                reflections_np_powder[ei, 2].astype(int),  # hkl index
                 ei,
-                zd=reflections_np[
-                    ei, 16
+                center_y=reflections_np_powder[
+                    ei, 8
                 ],  # zd saved to avoid recomputing during redering
-                yd=reflections_np[ei, 17],
+                center_z=reflections_np_powder[ei, 9],
+                major_axis=reflections_np_powder[ei, 10],
+                minor_axis=reflections_np_powder[ei, 11],
             )  # yd saved to avoid recomputing during redering)
 
             scattering_units.append(scattering_unit_powder)

@@ -238,7 +238,7 @@ class Detector:
                         scattering_unit, frame, lorentz, polarization, structure_factor
                     )
                 if isinstance(scattering_unit, ScatteringUnitPowder):
-                    _centroid_render_powder(
+                    self._centroid_render_powder(
                         scattering_unit, frame, lorentz, structure_factor
                     )
             if kernel is not None:
@@ -364,6 +364,7 @@ class Detector:
         zdhat = self.zdhat
         ydhat = self.ydhat
         normal = self.normal
+        det_corner_0 = self.det_corner_0
 
         # Find the intersection point of the cone axis with the detector plane
         denom = np.dot(incident_wave_vector, normal)
@@ -371,14 +372,14 @@ class Detector:
             raise ValueError("Cone axis is parallel to the detector plane.")
 
         t = np.dot(det_corner_0 - source_point, normal) / denom
-        center_3d = source_point + t * incident_direction
+        center_3d = source_point + t[:, np.newaxis] * incident_wave_vector
         center_2d = np.array([
             np.dot(center_3d - det_corner_0, zdhat),
             np.dot(center_3d - det_corner_0, ydhat)
         ])
 
         # The radius of the circular cross-section of the cone at this height
-        radius = t * np.tan(ray_angle)
+        radius = t * np.tan(ray_angle.ravel())
 
         # Choose an arbitrary orthonormal basis perpendicular to the incident_direction
         if np.allclose(incident_wave_vector, [0, 0, 1]):
@@ -391,21 +392,22 @@ class Detector:
         # Parametrize a few points on the circle at this height
         angles = np.linspace(0, 2 * np.pi, 100)
         circle_points = np.array([
-            center_3d + radius * (np.cos(a) * ortho1 + np.sin(a) * ortho2) for a in angles
+            center_3d + radius[:,np.newaxis] * (np.cos(a) * ortho1 + np.sin(a) * ortho2) for a in angles
         ])
-
         # Project points onto the detector plane coordinates
         zd_coords = np.dot(circle_points - det_corner_0, zdhat)
         yd_coords = np.dot(circle_points - det_corner_0, ydhat)
 
         # Fit an ellipse (centered at center_2d) to get axis lengths
-        zd_range = zd_coords.max() - zd_coords.min()
-        yd_range = yd_coords.max() - yd_coords.min()
+        zd_range = zd_coords.max(axis=0) - zd_coords.min(axis=0)
+        yd_range = yd_coords.max(axis=0) - yd_coords.min(axis=0)
 
-        major_axis = max(zd_range, yd_range) / 2
-        minor_axis = min(zd_range, yd_range) / 2
 
-        return center_2d, major_axis, minor_axis
+        major_axis = np.max((zd_range, yd_range),axis=0) / 2
+        minor_axis = np.min((zd_range, yd_range),axis=0) / 2
+        center_y = center_2d[0]
+        center_z = center_2d[1]
+        return center_y, center_z, major_axis, minor_axis
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
@@ -420,6 +422,7 @@ class Detector:
         """
 
         return (zd >= 0) & (zd <= self.zmax) & (yd >= 0) & (yd <= self.ymax)
+
 
     def project(self, scattering_unit, box):
         """Compute parametric projection of scattering region unto detector.
@@ -582,18 +585,18 @@ class Detector:
         sample scattering region centroid to the detector plane. The intensity is deposited into detector pixels
         that lie closest to the intersection elipse betweem the scattering cone and detector
         """
-        theta = scattering_unit_powder.scattered_angle
-        center_2d, major_axis, minor_axis = scattering_unit-powder.center_2d, scattering_unit_powder.major_axis, scattering_unit_powder.minor_axis
+        theta = scattering_unit_powder.scattered_angles
+        center_y, center_z, major_axis, minor_axis = scattering_unit_powder.center_y, scattering_unit_powder.center_z , scattering_unit_powder.major_axis, scattering_unit_powder.minor_axis
 
-        if self.contains(center_2d, major_axis, minor_axis):
+        if self.contains(center_y+major_axis, center_z+major_axis):
             intensity_scaling_factor = self._get_intensity_factor(
                 scattering_unit_powder, lorentz, None, structure_factor
             )
-            rows, cols = self._detector_cone_to_pixel_indices(center_2d, major_axis, minor_axis)
-            if np.isint(intensity_scaling_factor):
-                np.add.at(frame, (row, col), np.inf)
+            rows, cols = self._detector_cone_to_pixel_indices(center_y, center_z, major_axis, minor_axis)
+            if np.isinf(intensity_scaling_factor):
+                np.add.at(frame, (rows, cols), np.inf)
             else:
-                np.add.at(frame, (row, col), scattering_unit_powder.volume * intensity_scaling_factor/len(rows))
+                np.add.at(frame, (rows, cols), scattering_unit_powder.volume * intensity_scaling_factor/len(rows))
     
 
     def _centroid_render_with_scintillator(
@@ -697,16 +700,16 @@ class Detector:
         col_index = int(yd / self.pixel_size_y)
         return row_index, col_index
 
-    def _detector_cone_to_pixel_indices(self, center_2d, major_axis, minor_axis, num_points = 800):
-        zd0, yd0 = center_2d
-        t = np.linspace(0, 2 * np.pi, num_points)
-        zd = zd0 + major_axis * np.cos(t)
-        yd = yd0 + minor_axis * np.sin(t)
+    def _detector_cone_to_pixel_indices(self, center_y, center_z, major_axis, minor_axis, num_points = 800):
+        t = np.linspace(0, 2 * np.pi, num_points, endpoint=False)
 
-        row_indices = (zd / self.pixel_size_z).astype(int)
-        col_indices = (yd / self.pixel_size_y).astype(int)
+        zd = center_z + major_axis * np.cos(t)
+        yd = center_y + minor_axis * np.sin(t)
 
-        return set(zip(row_indices, col_indices))
+        row_indices = np.floor(zd / self.pixel_size_z).astype(int)
+        col_indices = np.floor(yd / self.pixel_size_y).astype(int)
+
+        return row_indices, col_indices
 
 
     def _get_projected_bounding_box(self, scattering_unit):

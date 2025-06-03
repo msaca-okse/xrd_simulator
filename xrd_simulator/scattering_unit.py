@@ -165,12 +165,17 @@ class ScatteringUnitPowder(object):
         wavelength,
         incident_polarization_vector,
         rotation_axis,
+        time,
         phase,
         hkl_indx,
-        element_index
+        element_index,
+        center_y=None,
+        center_z=None,
+        major_axis=None,
+        minor_axis=None
     ):
         self.convex_hull = convex_hull
-        self.scattered_wave_vector = scattered_angles
+        self.scattered_angles = scattered_angles
         self.incident_wave_vector = incident_wave_vector
         self.wavelength = wavelength
         self.incident_polarization_vector = incident_polarization_vector
@@ -179,6 +184,10 @@ class ScatteringUnitPowder(object):
         self.phase = phase
         self.hkl_indx = hkl_indx
         self.element_index = element_index
+        self.center_y = center_y
+        self.center_z = center_z
+        self.major_axis = major_axis
+        self.minor_axis = minor_axis
 
     @property
     def hkl(self):
