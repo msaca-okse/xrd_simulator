@@ -217,12 +217,6 @@ class ScatteringUnitPowder(object):
             return 1.0 / (np.sin(2 * theta) * sin_theta)
 
     @property
-    def polarization_factor(self):
-        """Compute the Polarization intensity factor for a scattering_unit."""
-        khatp = self.scattered_wave_vector / np.linalg.norm(self.scattered_wave_vector)
-        return 1 - np.dot(self.incident_polarization_vector, khatp) ** 2
-
-    @property
     def centroid(self):
         """centroid (:obj:`numpy array`): centroid of the scattering region. ``shape=(3,)``"""
         return np.mean(self.convex_hull.points[self.convex_hull.vertices], axis=0)
