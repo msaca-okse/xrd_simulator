@@ -17,7 +17,7 @@ from scipy.spatial import ConvexHull
 import pandas as pd
 import dill
 from xfab import tools
-from xrd_simulator.scattering_unit import ScatteringUnit
+from xrd_simulator.scattering_unit import ScatteringUnit, ScatteringUnitPowder
 from xrd_simulator import utils, laue
 
 
@@ -62,6 +62,10 @@ def _diffract(dict):
     BB_intersection = dict["BB_intersection"]
     number_of_elements = ecoord.shape[0]
 
+    none_indices = [i for i, item in enumerate(orientation_lab) if item is None]
+    orientation_lab = [np.eye(3) if item is None else item for item in orientation_lab]
+    orientation_lab = np.stack(orientation_lab, axis=0)
+
     rho_0_factor = np.float32(-beam.wave_vector.dot(rigid_body_motion.rotator.K2))
     rho_1_factor = np.float32(beam.wave_vector.dot(rigid_body_motion.rotator.K))
     rho_2_factor = np.float32(
@@ -86,6 +90,10 @@ def _diffract(dict):
 
     reflections_df = (
         pd.DataFrame()
+    )
+
+    reflections_df_powder = (
+        pd.DataFrame()
     )  # We create a dataframe to store all the relevant values for each individual reflection inr an organized manner
     scattering_units = []  # The output
 
@@ -93,29 +101,47 @@ def _diffract(dict):
     for i, phase in enumerate(phases):
         # Get all scatterers belonging to one phase at a time, and the corresponding miller indices.
         grain_index = np.where(element_phase_map == i)[0]
+        mask = ~np.isin(grain_index, none_indices)
+        grain_crystal_index = grain_index[mask]
+        grain_powder_index = grain_index[~mask]
         miller_indices = np.float32(phase.miller_indices)
+        invalid_miller_mask = np.any((miller_indices < -3) | (miller_indices > 3), axis=1)
+        miller_indices_reduced = miller_indices[~invalid_miller_mask]
         # Get all scattering vectors for all scatterers in a given phase
         G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index], miller_indices)
+        G_0_crystal = np.delete(G_0, none_indices, axis=0)
+        G_0_powder = G_0[none_indices]
+        G_0_powder = G_0_powder[:,:,~invalid_miller_mask]
+        
         # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
         reflection_index, time_values = (
             laue.find_solutions_to_tangens_half_angle_equation(
-                G_0,
+                G_0_crystal,
                 rho_0_factor,
                 rho_1_factor,
                 rho_2_factor,
                 rigid_body_motion.rotation_angle,
             )
         )
-        G_0_reflected = G_0.transpose(0, 2, 1)[
+        bragg_angles = laue.get_bragg_angles(G_0_powder, beam.wavelength).ravel(order='C')
+        time_values_powder = np.zeros_like(bragg_angles)
+
+        G_0_reflected = G_0_crystal.transpose(0, 2, 1)[
             reflection_index[0, :], reflection_index[1, :]
         ]
-
+        abs_G_0_powder = np.linalg.norm(G_0_powder,axis=1).ravel(order='C')
         del G_0
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
 
+        print(grain_crystal_index[reflection_index[0]].shape)
+        print(i)
+        print(reflection_index[1].shape)
+        print(time_values.shape)
+        print(G_0_reflected[:, 0].shape)
+
         table = pd.DataFrame(
             {
-                "Grain": grain_index[reflection_index[0]],
+                "Grain": grain_crystal_index[reflection_index[0]],
                 "phase": i,
                 "hkl": reflection_index[1],
                 "time": time_values,
@@ -125,8 +151,28 @@ def _diffract(dict):
             }
         )
 
-        del G_0_reflected, reflection_index, time_values
+
+        print(np.shape(np.repeat(grain_powder_index, np.shape(miller_indices_reduced)[0])))
+        print(np.repeat(grain_powder_index, np.shape(miller_indices_reduced)[0]))
+        print(i)
+        print(np.shape(time_values_powder))
+        print(np.shape(abs_G_0_powder))
+        table_powder = pd.DataFrame(
+            {
+                "Grain": np.repeat(grain_powder_index, np.shape(miller_indices_reduced)[0]),
+                "phase": i,
+                "time": time_values_powder,
+                "abs_G_0": abs_G_0_powder,
+            }
+        )
+
+
+
+        del G_0_reflected, reflection_index, time_values, abs_G_0_powder
         reflections_df = pd.concat([reflections_df, table], axis=0).sort_values(
+            by="Grain"
+        )
+        reflections_df_powder = pd.concat([reflections_df_powder, table_powder], axis=0).sort_values(
             by="Grain"
         )
 
@@ -139,6 +185,7 @@ def _diffract(dict):
     reflections_df[["k'x", "k'y", "k'z"]] = (
         reflections_df[["Gx", "Gy", "Gz"]] + beam.wave_vector
     )
+    
     reflections_df[["Source_x", "Source_y", "Source_z"]] = rigid_body_motion(
         espherecentroids[reflections_df["Grain"]], reflections_df["time"].values
     )
@@ -196,6 +243,25 @@ def _diffract(dict):
             )  # yd saved to avoid recomputing during redering)
 
             scattering_units.append(scattering_unit)
+
+        for ei in range(len(bragg_angles)):
+            scattering_unit_powder = ScatteringUnitPowder(
+                ConvexHull(element_vertices[ei]),
+                bragg_angles[ei],  # outgoing bragg angle
+                beam.wave_vector,
+                beam.wavelength,
+                beam.polarization_vector,
+                rigid_body_motion.rotation_axis,
+                phases[reflections_np[ei, 1].astype(int)],  # phase
+                reflections_np[ei, 2].astype(int),  # hkl index
+                ei,
+                zd=reflections_np[
+                    ei, 16
+                ],  # zd saved to avoid recomputing during redering
+                yd=reflections_np[ei, 17],
+            )  # yd saved to avoid recomputing during redering)
+
+            scattering_units.append(scattering_unit_powder)
 
     else:
         """Otherwise, compute the true intersection of each tet with the beam to get the true scattering volume."""
@@ -356,9 +422,7 @@ class Polycrystal:
             self.mesh_lab.espherecentroids, number_of_processes, axis=0
         )
         eradius = np.array_split(self.mesh_lab.eradius, number_of_processes, axis=0)
-        orientation_lab = np.array_split(
-            self.orientation_lab, number_of_processes, axis=0
-        )
+        orientation_lab = list_split(self.orientation_lab, number_of_processes)
         eB = np.array_split(self._eB, number_of_processes, axis=0)
         element_phase_map = np.array_split(
             self.element_phase_map, number_of_processes, axis=0
@@ -590,3 +654,11 @@ class Polycrystal:
             + "dgrs"
         )
         return min_bragg_angle, max_bragg_angle
+
+def list_split(lst, num_splits):
+    n = len(lst)
+    # Compute split sizes
+    split_sizes = [(n // num_splits) + (1 if i < n % num_splits else 0) for i in range(num_splits)]
+    # Compute split indices
+    indices = np.cumsum([0] + split_sizes)
+    return [lst[indices[i]:indices[i + 1]] for i in range(num_splits)]

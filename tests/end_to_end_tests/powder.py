@@ -22,6 +22,12 @@ polycrystal = get_uniform_powder_sample(
     sgname='P3221'
 )
 
+orientation_lab = list(polycrystal.orientation_lab)
+orientation_lab[0] = None
+orientation_lab[1] = None
+polycrystal.orientation_lab = orientation_lab
+
+
 
 w = 2 * sample_bounding_radius  # full field beam
 beam_vertices = np.array([

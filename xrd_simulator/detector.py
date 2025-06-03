@@ -16,6 +16,7 @@ import numpy as np
 from xrd_simulator import utils
 import dill
 from scipy.signal import convolve2d
+from xrd_simulator.scattering_unit import ScatteringUnit, ScatteringUnitPowder
 from multiprocessing import Pool
 
 
@@ -232,9 +233,14 @@ class Detector:
                     utils._print_progress(
                         progress_fraction, message=progress_bar_message
                     )
-                renderer(
-                    scattering_unit, frame, lorentz, polarization, structure_factor
-                )
+                if isinstance(scattering_unit, ScatteringUnit):
+                    renderer(
+                        scattering_unit, frame, lorentz, polarization, structure_factor
+                    )
+                if isinstance(scattering_unit, ScatteringUnitPowder):
+                    _centroid_render_powder(
+                        scattering_unit, frame, lorentz, structure_factor
+                    )
             if kernel is not None:
                 frame = self._apply_point_spread_function(frame, kernel)
             rendered_frames.append(frame)
@@ -341,6 +347,65 @@ class Detector:
         zd = np.dot(intersection - self.det_corner_0, self.zdhat)
         yd = np.dot(intersection - self.det_corner_0, self.ydhat)
         return np.array([zd, yd]).T
+
+    def get_intersection_cone(self, ray_angle, incident_wave_vector, source_point):
+        """Get detector intersection in detector coordinates of a single ray originating from source_point.
+
+        Args:
+            ray_direction (:obj:`numpy array`): Vector in direction of the xray propagation
+            source_point (:obj:`numpy array`): Origin of the ray.
+
+        Returns:
+            (:obj:`tuple`) zd, yd in detector plane coordinates.
+
+        """
+
+        incident_wave_vector = incident_wave_vector / np.linalg.norm(incident_wave_vector)
+        zdhat = self.zdhat
+        ydhat = self.ydhat
+        normal = self.normal
+
+        # Find the intersection point of the cone axis with the detector plane
+        denom = np.dot(incident_wave_vector, normal)
+        if np.abs(denom) < 1e-8:
+            raise ValueError("Cone axis is parallel to the detector plane.")
+
+        t = np.dot(det_corner_0 - source_point, normal) / denom
+        center_3d = source_point + t * incident_direction
+        center_2d = np.array([
+            np.dot(center_3d - det_corner_0, zdhat),
+            np.dot(center_3d - det_corner_0, ydhat)
+        ])
+
+        # The radius of the circular cross-section of the cone at this height
+        radius = t * np.tan(ray_angle)
+
+        # Choose an arbitrary orthonormal basis perpendicular to the incident_direction
+        if np.allclose(incident_wave_vector, [0, 0, 1]):
+            ortho1 = np.array([1, 0, 0])
+        else:
+            ortho1 = np.cross(incident_wave_vector, [0, 0, 1])
+            ortho1 /= np.linalg.norm(ortho1)
+        ortho2 = np.cross(incident_wave_vector, ortho1)
+
+        # Parametrize a few points on the circle at this height
+        angles = np.linspace(0, 2 * np.pi, 100)
+        circle_points = np.array([
+            center_3d + radius * (np.cos(a) * ortho1 + np.sin(a) * ortho2) for a in angles
+        ])
+
+        # Project points onto the detector plane coordinates
+        zd_coords = np.dot(circle_points - det_corner_0, zdhat)
+        yd_coords = np.dot(circle_points - det_corner_0, ydhat)
+
+        # Fit an ellipse (centered at center_2d) to get axis lengths
+        zd_range = zd_coords.max() - zd_coords.min()
+        yd_range = yd_coords.max() - yd_coords.min()
+
+        major_axis = max(zd_range, yd_range) / 2
+        minor_axis = min(zd_range, yd_range) / 2
+
+        return center_2d, major_axis, minor_axis
 
     def contains(self, zd, yd):
         """Determine if the detector coordinate zd,yd lies within the detector bounds.
@@ -510,6 +575,27 @@ class Detector:
             else:
                 frame[row, col] += scattering_unit.volume * intensity_scaling_factor
 
+    def _centroid_render_powder(
+        self, scattering_unit_powder, frame, lorentz, structure_factor
+    ):
+        """Simple deposit of intensity for each scattering_unit onto the detector by tracing a cone from the
+        sample scattering region centroid to the detector plane. The intensity is deposited into detector pixels
+        that lie closest to the intersection elipse betweem the scattering cone and detector
+        """
+        theta = scattering_unit_powder.scattered_angle
+        center_2d, major_axis, minor_axis = scattering_unit-powder.center_2d, scattering_unit_powder.major_axis, scattering_unit_powder.minor_axis
+
+        if self.contains(center_2d, major_axis, minor_axis):
+            intensity_scaling_factor = self._get_intensity_factor(
+                scattering_unit_powder, lorentz, None, structure_factor
+            )
+            rows, cols = self._detector_cone_to_pixel_indices(center_2d, major_axis, minor_axis)
+            if np.isint(intensity_scaling_factor):
+                np.add.at(frame, (row, col), np.inf)
+            else:
+                np.add.at(frame, (row, col), scattering_unit_powder.volume * intensity_scaling_factor/len(rows))
+    
+
     def _centroid_render_with_scintillator(
         self, scattering_unit, frame, lorentz, polarization, structure_factor
     ):
@@ -610,6 +696,18 @@ class Detector:
         row_index = int(zd / self.pixel_size_z)
         col_index = int(yd / self.pixel_size_y)
         return row_index, col_index
+
+    def _detector_cone_to_pixel_indices(self, center_2d, major_axis, minor_axis, num_points = 800):
+        zd0, yd0 = center_2d
+        t = np.linspace(0, 2 * np.pi, num_points)
+        zd = zd0 + major_axis * np.cos(t)
+        yd = yd0 + minor_axis * np.sin(t)
+
+        row_indices = (zd / self.pixel_size_z).astype(int)
+        col_indices = (yd / self.pixel_size_y).astype(int)
+
+        return set(zip(row_indices, col_indices))
+
 
     def _get_projected_bounding_box(self, scattering_unit):
         """Compute bounding detector pixel indices of the bounding the projection of a scattering region.

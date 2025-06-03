@@ -165,7 +165,6 @@ class ScatteringUnitPowder(object):
         wavelength,
         incident_polarization_vector,
         rotation_axis,
-        time,
         phase,
         hkl_indx,
         element_index
