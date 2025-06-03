@@ -206,18 +206,15 @@ class ScatteringUnitPowder(object):
     def lorentz_factor(self):
         """Compute the Lorentz intensity factor for a scattering_unit."""
         k = self.incident_wave_vector
-        kp = self.scattered_angle
         theta = self.scattered_angle
-        eta = 1/np.sqrt(2)
+        sin_eta = 1/np.sqrt(2)
         tol = 0.5
         if (
-            np.abs(np.degrees(eta)) < tol
-            or np.abs(np.degrees(eta)) > 180 - tol
-            or np.degrees(theta) < tol
+            np.degrees(theta) < tol
         ):
             return np.inf
         else:
-            return 1.0 / (np.sin(2 * theta) * np.abs(np.sin(eta)))
+            return 1.0 / (np.sin(2 * theta) * sin_theta)
 
     @property
     def polarization_factor(self):
