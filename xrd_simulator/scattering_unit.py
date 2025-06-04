@@ -172,7 +172,8 @@ class ScatteringUnitPowder(object):
         center_y=None,
         center_z=None,
         major_axis=None,
-        minor_axis=None
+        minor_axis=None,
+        angular_span=None,
     ):
         self.convex_hull = convex_hull
         self.scattered_angles = scattered_angles
@@ -188,6 +189,7 @@ class ScatteringUnitPowder(object):
         self.center_z = center_z
         self.major_axis = major_axis
         self.minor_axis = minor_axis
+        self.angular_span = angular_span
 
     @property
     def hkl(self):

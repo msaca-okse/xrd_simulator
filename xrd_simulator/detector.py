@@ -390,7 +390,7 @@ class Detector:
         ortho2 = np.cross(incident_wave_vector, ortho1)
 
         # Parametrize a few points on the circle at this height
-        angles = np.linspace(0, 2 * np.pi, 100)
+        angles = np.linspace(0, 2 * np.pi, 360)
         circle_points = np.array([
             center_3d + radius[:,np.newaxis] * (np.cos(a) * ortho1 + np.sin(a) * ortho2) for a in angles
         ])
@@ -588,15 +588,23 @@ class Detector:
         theta = scattering_unit_powder.scattered_angles
         center_y, center_z, major_axis, minor_axis = scattering_unit_powder.center_y, scattering_unit_powder.center_z , scattering_unit_powder.major_axis, scattering_unit_powder.minor_axis
 
-        if self.contains(center_y+major_axis, center_z+major_axis):
+        if self.contains(center_y+major_axis*0.7, center_z+major_axis*0.7):
             intensity_scaling_factor = self._get_intensity_factor(
                 scattering_unit_powder, lorentz, None, structure_factor
             )
             rows, cols = self._detector_cone_to_pixel_indices(center_y, center_z, major_axis, minor_axis)
+            intensity_row_scaling = len(rows)
+            mask = (
+                (rows >= 0) & (rows < frame.shape[0]) &
+                (cols >= 0) & (cols < frame.shape[1])
+            )
+
+            rows = rows[mask]
+            cols = cols[mask]
             if np.isinf(intensity_scaling_factor):
                 np.add.at(frame, (rows, cols), np.inf)
             else:
-                np.add.at(frame, (rows, cols), scattering_unit_powder.volume * intensity_scaling_factor/len(rows))
+                np.add.at(frame, (rows, cols), scattering_unit_powder.volume * intensity_scaling_factor/intensity_row_scaling*scattering_unit_powder.angular_span)
     
 
     def _centroid_render_with_scintillator(

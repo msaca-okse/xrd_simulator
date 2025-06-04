@@ -209,7 +209,7 @@ def _diffract(dict):
         (center_y, center_z, major_axis, minor_axis)
     )
     reflections_df_powder = reflections_df_powder[
-        detector.contains(reflections_df_powder["center_y"] + reflections_df_powder["major_axis"], reflections_df_powder["center_z"] + reflections_df_powder["major_axis"])
+        detector.contains(reflections_df_powder["center_y"] + 0.7*reflections_df_powder["major_axis"], reflections_df_powder["center_z"] + 0.7*reflections_df_powder["major_axis"])
     ]
 
     element_vertices_powder_0 = ecoord[reflections_df_powder["Grain"]]
@@ -293,6 +293,7 @@ def _diffract(dict):
                 center_z=reflections_np_powder[ei, 9],
                 major_axis=reflections_np_powder[ei, 10],
                 minor_axis=reflections_np_powder[ei, 11],
+                angular_span=rigid_body_motion.rotation_angle
             )  # yd saved to avoid recomputing during redering)
 
             scattering_units.append(scattering_unit_powder)

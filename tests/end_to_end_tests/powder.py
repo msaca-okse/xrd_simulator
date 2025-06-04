@@ -25,7 +25,7 @@ polycrystal = get_uniform_powder_sample(
 orientation_lab = list(polycrystal.orientation_lab)
 #orientation_lab[0] = None
 #orientation_lab[1] = None
-for i in range(len(orientation_lab)-0):
+for i in range(len(orientation_lab)-500):
     orientation_lab[i] = None
 polycrystal.orientation_lab = orientation_lab
 
@@ -50,7 +50,7 @@ beam = Beam(
     wavelength,
     polarization_vector)
 
-rotation_angle = 5 * np.pi / 180.
+rotation_angle = 15 * np.pi / 180.
 rotation_axis = np.array([0, 1, 0])
 translation = np.array([0, 0, 0])
 motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
@@ -67,7 +67,73 @@ diffraction_pattern = detector.render(frames_to_render=0,
                                       polarization=False,
                                       structure_factor=False)
 
-print(np.max(diffraction_pattern), np.min(diffraction_pattern))
+sum_powder = np.sum(diffraction_pattern)
+
+
+
+del polycrystal, detector, diffraction_pattern
+
+
+
+
+
+
+detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
+polycrystal = get_uniform_powder_sample(
+    sample_bounding_radius=sample_bounding_radius,
+    number_of_grains=500,
+    unit_cell=[4.926, 4.926, 5.4189, 90., 90., 120.],
+    sgname='P3221'
+)
+
+orientation_lab = list(polycrystal.orientation_lab)
+#orientation_lab[0] = None
+#orientation_lab[1] = None
+for i in range(len(orientation_lab)-250):
+    orientation_lab[i] = None
+polycrystal.orientation_lab = orientation_lab
+
+w = 2 * sample_bounding_radius  # full field beam
+beam_vertices = np.array([
+    [-detector_distance, -w, -w],
+    [-detector_distance, w, -w],
+    [-detector_distance, w, w],
+    [-detector_distance, -w, w],
+    [detector_distance, -w, -w],
+    [detector_distance, w, -w],
+    [detector_distance, w, w],
+    [detector_distance, -w, w]])
+wavelength = 0.285227
+xray_propagation_direction = np.array([1, 0, 0]) * 2 * np.pi / wavelength
+polarization_vector = np.array([0, 1, 0])
+beam = Beam(
+    beam_vertices,
+    xray_propagation_direction,
+    wavelength,
+    polarization_vector)
+
+rotation_angle = 15 * np.pi / 180.
+rotation_axis = np.array([0, 1, 0])
+translation = np.array([0, 0, 0])
+motion = RigidBodyMotion(rotation_axis, rotation_angle, translation)
+
+polycrystal.diffract(beam,
+                     detector,
+                     motion,
+                     proximity=True,
+                     BB_intersection=True)
+
+diffraction_pattern = detector.render(frames_to_render=0,
+                                      method='project',
+                                      lorentz=False,
+                                      polarization=False,
+                                      structure_factor=False)
+
+
+sum_crystal = np.sum(diffraction_pattern)
+
+print(sum_powder/sum_crystal)
+
 plt.imshow(diffraction_pattern, cmap='gray')
 plt.clim([0,100])
 plt.title("Hits: " + str(len(detector.frames[0])))
