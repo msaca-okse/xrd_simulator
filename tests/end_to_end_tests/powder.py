@@ -23,8 +23,10 @@ polycrystal = get_uniform_powder_sample(
 )
 
 orientation_lab = list(polycrystal.orientation_lab)
-orientation_lab[0] = None
-orientation_lab[1] = None
+#orientation_lab[0] = None
+#orientation_lab[1] = None
+for i in range(len(orientation_lab)-0):
+    orientation_lab[i] = None
 polycrystal.orientation_lab = orientation_lab
 
 
@@ -65,6 +67,8 @@ diffraction_pattern = detector.render(frames_to_render=0,
                                       polarization=False,
                                       structure_factor=False)
 
-plt.imshow(diffraction_pattern > 0, cmap='gray')
+print(np.max(diffraction_pattern), np.min(diffraction_pattern))
+plt.imshow(diffraction_pattern, cmap='gray')
+plt.clim([0,100])
 plt.title("Hits: " + str(len(detector.frames[0])))
 plt.show()

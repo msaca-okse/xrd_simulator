@@ -146,11 +146,6 @@ def _diffract(dict):
         )
 
 
-        print(np.shape(np.repeat(grain_powder_index, np.shape(miller_indices_reduced)[0])))
-        print(np.repeat(grain_powder_index, np.shape(miller_indices_reduced)[0]))
-        print(i)
-        print(np.shape(time_values_powder))
-        print(np.shape(abs_G_0_powder))
         table_powder = pd.DataFrame(
             {
                 "Grain": np.repeat(grain_powder_index, np.shape(miller_indices_reduced)[0]),
@@ -213,6 +208,14 @@ def _diffract(dict):
     reflections_df_powder[["center_y", "center_z", "major_axis", "minor_axis"]] = np.column_stack(
         (center_y, center_z, major_axis, minor_axis)
     )
+    reflections_df_powder = reflections_df_powder[
+        detector.contains(reflections_df_powder["center_y"] + reflections_df_powder["major_axis"], reflections_df_powder["center_z"] + reflections_df_powder["major_axis"])
+    ]
+
+    element_vertices_powder_0 = ecoord[reflections_df_powder["Grain"]]
+    element_vertices_powder = rigid_body_motion(
+        element_vertices_powder_0, reflections_df_powder["time"].values
+    )
 
     reflections_np = (
         reflections_df.values
@@ -226,7 +229,6 @@ def _diffract(dict):
     if BB_intersection:
         # A Bounding-Box intersection is a simplified way of computing the grains that interact with the beam (to enhance speed),
         # simply considering the beam as a prism and the tets that interact are those whose centroid is contained in the prism.
-        print(reflections_df_powder.columns[8])
         reflections_np = reflections_np[
             reflections_np[:, 14] < (beam.vertices[:, 1].max())
         ]  #
@@ -275,7 +277,7 @@ def _diffract(dict):
 
         for ei in range(reflections_np_powder.shape[0]):
             scattering_unit_powder = ScatteringUnitPowder(
-                ConvexHull(element_vertices[ei]),
+                ConvexHull(element_vertices_powder[ei]),
                 bragg_angles[ei],  # outgoing bragg angle
                 beam.wave_vector,
                 beam.wavelength,

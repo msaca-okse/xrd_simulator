@@ -379,7 +379,7 @@ class Detector:
         ])
 
         # The radius of the circular cross-section of the cone at this height
-        radius = t * np.tan(ray_angle.ravel())
+        radius = 2*t * np.tan(ray_angle.ravel())
 
         # Choose an arbitrary orthonormal basis perpendicular to the incident_direction
         if np.allclose(incident_wave_vector, [0, 0, 1]):
