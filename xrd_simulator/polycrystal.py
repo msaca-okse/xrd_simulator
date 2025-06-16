@@ -325,6 +325,38 @@ def _diffract(dict):
 
                 scattering_units.append(scattering_unit)
 
+
+
+        ################################## CHECK THIS PART AFTER LUNCH ################################
+        ################################## CHECK THIS PART AFTER LUNCH ################################
+        ################################## CHECK THIS PART AFTER LUNCH ################################
+        ################################## CHECK THIS PART AFTER LUNCH ################################
+        for ei in range(element_vertices_powder.shape[0]):
+            scattering_region_powder = beam.intersect(element_vertices_powder[ei])
+
+            if scattering_region_powder is not None:
+                scattering_unit_powder = ScatteringUnitPowder(
+                    scattering_region_powder,
+                    bragg_angles[ei],
+                    beam.wave_vector,
+                    beam.wavelength,
+                    beam.polarization_vector,
+                    rigid_body_motion.rotation_axis,
+                    reflections_np_powder[ei, 2],  # time
+                    phases[reflections_np_powder[ei, 1].astype(int)],  # phase
+                    reflections_np_powder[ei, 2].astype(int),  # hkl index
+                    ei,
+                    center_y=reflections_np_powder[
+                        ei, 8
+                    ],  # zd saved to avoid recomputing during redering
+                    center_z=reflections_np_powder[ei, 9],
+                    major_axis=reflections_np_powder[ei, 10],
+                    minor_axis=reflections_np_powder[ei, 11],
+                    angular_span=rigid_body_motion.rotation_angle
+                )
+
+                scattering_units.append(scattering_unit_powder)
+
     return scattering_units
 
 
@@ -532,7 +564,8 @@ class Polycrystal:
             rigid_body_motion.rotation_angle * time
         )
 
-        self.orientation_lab = np.matmul(Rot_mat, self.orientation_lab)
+        if self.orientation_lab[0] is not None:
+            self.orientation_lab = np.matmul(Rot_mat, self.orientation_lab)
 
         self.strain_lab = np.matmul(np.matmul(Rot_mat, self.strain_lab), Rot_mat.T)
 
