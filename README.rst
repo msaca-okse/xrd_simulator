@@ -1,3 +1,20 @@
+## About this Fork
+
+This repository is a fork of xrd_simulator (https://github.com/FABLE-3DXRD/xrd_simulator) by Axel Henningsson, Marc Raventós, Jon Wright,  Vinay Amatya.
+
+The original code and documentation were developed by the original author.
+The changes made, allows the user to set the orientation of a mesh element to "None", in which case the element is treated like a crystal.
+Orientations can now be specified as a list, with entries specifying the orientation of each mesh element, or specifying if the element is a powder.
+
+This modification of the original code adds a new scattering unit class for powders. The powder elements are treated as follows: Instead of
+solving the Laue equations for each Miller index for each element, the Bragg angle is calculated (for each Miller index). The bragg angle
+is used to calculate the intersection between the diffraction cone and the detector (an elipse). Intensity is added to the pixels in this elipse.
+
+See below for the original README content.
+
+
+
+
 .. image:: https://github.com/FABLE-3DXRD/xrd_simulator/blob/main/docs/source/images/logo.png?raw=true
 
 .. image:: https://img.shields.io/pypi/pyversions/xrd-simulator.svg?
