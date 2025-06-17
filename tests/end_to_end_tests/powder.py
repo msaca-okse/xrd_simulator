@@ -92,12 +92,12 @@ rotation_angle_per_scan = 1 * np.pi / 180.01
 
 def process_one_angle(i):
     with h5py.File(f'/dtu-compute/msaca/simulated_data/diffraction/single_crystal_diffraction/diffraction_patterns_crystal_angle_{i}.h5', 'w') as h5file:
+        rot = rotation_angle_placement * i + 1e-7
+        print(rot*180/np.pi)
         for j in range(-Nx//2, Nx//2):
             detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
-            rot = rotation_angle_placement * i + 1e-7
             trans = translation * j
-            print(trans)
-            print(rot*180/np.pi)
+
             placement = RigidBodyMotion(rotation_axis, rot, trans)
 
             motion1deg = RigidBodyMotion(rotation_axis, rotation_angle_per_scan, np.array([0, 0, 0]))
@@ -139,6 +139,6 @@ def process_one_angle(i):
 
 
 if __name__ == '__main__':
-    with multiprocessing.Pool(processes=16) as pool:
+    with multiprocessing.Pool(processes=32) as pool:
         inputs = list(range(N_angle))
         results = pool.map(process_one_angle, inputs)
