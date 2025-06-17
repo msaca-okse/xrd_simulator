@@ -1,0 +1,5 @@
+Loaded module: cuda/12.2
+Traceback (most recent call last):
+  File "/zhome/71/c/146676/xrd_simulator/xrd_simulator/tests/end_to_end_tests/powder.py", line 3, in <module>
+    from xrd_simulator.detector import Detector
+ModuleNotFoundError: No module named 'xrd_simulator'

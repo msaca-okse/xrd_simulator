@@ -8,6 +8,8 @@ from xrd_simulator.templates import get_uniform_powder_sample
 import multiprocessing
 import os
 import h5py
+import sys
+
 
 pixel_size = 150.
 detector_size = pixel_size * 512
@@ -81,27 +83,26 @@ beam = Beam(
 rotation_axis = np.array([0, 0, 1])
 translation = np.array([0, 5, 0]) ##translation = np.array([0, 0.05, 0])
 
-Nx=128
-N_angle = 181
+Nx=128 # 128
+N_angle = 181 # 181
 
 rotation_angle_placement = 1 * np.pi / 180.01
 rotation_angle_per_scan = 1 * np.pi / 180.01
 
 
 def process_one_angle(i):
-    #with h5py.File(f'data/diffraction_patterns_crystal_angle_{i}.h5', 'w') as h5file:
-    for j in range(-Nx//2, Nx//2):
-        detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
-        rot = rotation_angle_placement * i + 1e-7
-        trans = translation * j
-        placement = RigidBodyMotion(rotation_axis, rot, trans)
+    with h5py.File(f'data/diffraction_patterns_crystal_angle_{i}.h5', 'w') as h5file:
+        for j in range(-Nx//2, Nx//2):
+            detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
+            rot = rotation_angle_placement * i + 1e-7
+            trans = translation * j
+            placement = RigidBodyMotion(rotation_axis, rot, trans)
 
-        motion1deg = RigidBodyMotion(rotation_axis, rotation_angle_per_scan, np.array([0, 0, 0]))
-        poly_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'my_polycrystal.pc'))
-        polycrystal = Polycrystal.load(poly_path)
-        orientation_lab = list(polycrystal.orientation_lab)
-        #orientation_lab[0] = None  # set first grain to powder
-        polycrystal.orientation_lab = orientation_lab
+            motion1deg = RigidBodyMotion(rotation_axis, rotation_angle_per_scan, np.array([0, 0, 0]))
+            polycrystal = Polycrystal.load('my_polycrystal.pc')
+            orientation_lab = list(polycrystal.orientation_lab)
+            orientation_lab[0] = None  # set first grain to powder
+            polycrystal.orientation_lab = orientation_lab
 
         polycrystal.transform(placement, time=1.0)
         polycrystal.diffract(
