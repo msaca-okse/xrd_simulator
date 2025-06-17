@@ -81,7 +81,7 @@ beam = Beam(
     polarization_vector)
 
 rotation_axis = np.array([0, 0, 1])
-translation = np.array([0, 0.05, 0])
+translation = np.array([0, 5, 0]) ##translation = np.array([0, 0.05, 0])
 
 Nx=128 # 128
 N_angle = 181 # 181
@@ -91,41 +91,47 @@ rotation_angle_per_scan = 1 * np.pi / 180.01
 
 
 def process_one_angle(i):
+<<<<<<< HEAD
     with h5py.File(f'/dtu-compute/msaca/simulated_data/diffraction/single_crystal_diffraction/diffraction_patterns_crystal_angle_{i}.h5', 'w') as h5file:
         rot = rotation_angle_placement * i + 1e-7
         print(rot*180/np.pi)
+=======
+    with h5py.File(f'data/diffraction_patterns_crystal_angle_{i}.h5', 'w') as h5file:
+>>>>>>> 8a2ed686f06eeda02a603001e680f55cb053d25c
         for j in range(-Nx//2, Nx//2):
             detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
             trans = translation * j
+<<<<<<< HEAD
 
+=======
+>>>>>>> 8a2ed686f06eeda02a603001e680f55cb053d25c
             placement = RigidBodyMotion(rotation_axis, rot, trans)
 
             motion1deg = RigidBodyMotion(rotation_axis, rotation_angle_per_scan, np.array([0, 0, 0]))
-            poly_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'my_polycrystal.pc'))
-            polycrystal = Polycrystal.load(poly_path)
+            polycrystal = Polycrystal.load('my_polycrystal.pc')
             orientation_lab = list(polycrystal.orientation_lab)
-            #orientation_lab[0] = None  # set first grain to powder
+            orientation_lab[0] = None  # set first grain to powder
             polycrystal.orientation_lab = orientation_lab
 
-            polycrystal.transform(placement, time=1.0)
-            polycrystal.diffract(
-                beam,
-                detector,
-                motion1deg,
-                BB_intersection=False
-            )
+        polycrystal.transform(placement, time=1.0)
+        polycrystal.diffract(
+            beam,
+            detector,
+            motion1deg,
+            BB_intersection=False
+        )
 
-            diffraction_pattern = detector.render(
-                frames_to_render=0,
-                method='project',
-                lorentz=False,
-                polarization=False,
-                structure_factor=False
-            ) * 1e6
+        diffraction_pattern = detector.render(
+            frames_to_render=0,
+            method='project',
+            lorentz=False,
+            polarization=False,
+            structure_factor=False
+        ) * 1e6
 
-            # Save pattern to HDF5 with j as a group key
-            dset_name = f'pattern_{j + Nx // 2:03d}'  # zero-padded
-            h5file.create_dataset(dset_name, data=diffraction_pattern.astype(np.float16), compression='gzip')
+        # Save pattern to HDF5 with j as a group key
+        dset_name = f'pattern_{j + Nx // 2:03d}'  # zero-padded
+        #h5file.create_dataset(dset_name, data=diffraction_pattern.astype(np.float16), compression='gzip')
 
 
         #plt.figure(figsize=(10, 10))

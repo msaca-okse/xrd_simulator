@@ -107,8 +107,13 @@ def process_one_angle(i):
 
 if __name__ == '__main__':
     # Step 1: Load all diffraction pattern files in parallel
+<<<<<<< HEAD
     files = sorted(glob.glob("/home/msaca/Data/simulated_diffraction_data/single_powder_simulation/diffraction_patterns_angle_*.h5"), key=extract_index)
     #files = sorted(glob.glob("/home/msaca/Data/simulated_diffraction_data/single_crystal_simulation/diffraction_patterns_crystal_angle_*.h5"), key=extract_index)
+=======
+    #files = sorted(glob.glob("/home/msaca/Data/simulated_diffraction_data/single_powder_simulation/diffraction_patterns_angle_*.h5"), key=extract_index)
+    files = sorted(glob.glob("/home/msaca/Data/simulated_diffraction_data/single_crystal_simulation/diffraction_patterns_crystal_angle_*.h5"), key=extract_index)
+>>>>>>> 8a2ed686f06eeda02a603001e680f55cb053d25c
 
     #files = files[60:65]
 
@@ -126,9 +131,16 @@ if __name__ == '__main__':
         result_list = pool.map(process_one_angle, range(num_angles))
 
     integrated_data = np.stack(result_list)  # (num_angles, num_j, num_rad)
+<<<<<<< HEAD
     with h5py.File("/dtu-compute/msaca/simulated_data/diffraction/single_powder_dffraction/integrated_data.h5", "w") as f:
         f.create_dataset("integrated", data=integrated_data)
     #with h5py.File("/home/msaca/Data/simulated_diffraction_data/single_crystal_simulation/integrated_data.h5", "w") as f:
     #    f.create_dataset("integrated", data=integrated_data)
+=======
+    #with h5py.File("/home/msaca/Data/simulated_diffraction_data/single_powder_simulation/integrated_data.h5", "w") as f:
+    #    f.create_dataset("integrated", data=integrated_data)
+    with h5py.File("/home/msaca/Data/simulated_diffraction_data/single_crystal_simulation/integrated_data.h5", "w") as f:
+        f.create_dataset("integrated", data=integrated_data)
+>>>>>>> 8a2ed686f06eeda02a603001e680f55cb053d25c
 
     print("Integrated shape:", integrated_data.shape)
