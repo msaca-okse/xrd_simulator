@@ -1,0 +1,62 @@
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@hpc.dtu.dk>
+Subject: Job 25255625: <powder_job> in cluster <dcc> Exited
+
+Job <powder_job> was submitted from host <n-62-11-22> by user <msaca> in cluster <dcc> at Tue Jun 17 09:29:58 2025
+Job was executed on host(s) <32*n-62-11-56>, in queue <hpc>, as user <msaca> in cluster <dcc> at Tue Jun 17 09:29:59 2025
+</zhome/71/c/146676> was used as the home directory.
+</zhome/71/c/146676/xrd_simulator/xrd_simulator/tests/end_to_end_tests> was used as the working directory.
+Started at Tue Jun 17 09:29:59 2025
+Terminated at Tue Jun 17 09:30:02 2025
+Results reported at Tue Jun 17 09:30:02 2025
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+#!/bin/bash
+#BSUB -J powder_job
+#BSUB -n 32                    # Request 32 CPU cores
+#BSUB -R "span[hosts=1]"       # All cores on the same node
+#BSUB -R "rusage[mem=1024]"    # 1GB per core
+#BSUB -M 1024                  # Enforced memory limit per core (in MB)
+#BSUB -q hpc
+#BSUB -W 02:00                 # Wall time (e.g., 1 hour)
+#BSUB -o powder_out.%J        # Standard output (%J = job ID)
+#BSUB -e powder_err.%J        # Standard error
+
+# Load Python if needed (adjust module as appropriate)
+# module load python/3.10
+
+# Activate your virtualenv or conda env if needed
+# source ~/path/to/venv/bin/activate
+
+# Run the Python script
+python3 powder.py
+
+------------------------------------------------------------
+
+Exited with exit code 1.
+
+Resource usage summary:
+
+    CPU time :                                   1.26 sec.
+    Max Memory :                                 -
+    Average Memory :                             -
+    Total Requested Memory :                     32768.00 MB
+    Delta Memory :                               -
+    Max Swap :                                   -
+    Max Processes :                              -
+    Max Threads :                                -
+    Run time :                                   36 sec.
+    Turnaround time :                            4 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <powder_err.25255625> for stderr output of this job.
+

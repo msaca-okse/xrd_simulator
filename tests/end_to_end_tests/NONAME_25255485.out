@@ -1,0 +1,104 @@
+Loaded module: cuda/12.2
+import: unable to open X server `' @ error/import.c/ImportImageCommand/346.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/346.
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 3: from: command not found
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 4: from: command not found
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 5: from: command not found
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 6: from: command not found
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 7: from: command not found
+import: unable to open X server `' @ error/import.c/ImportImageCommand/346.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/346.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/346.
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 12: pixel_size: command not found
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 13: detector_size: command not found
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 14: detector_distance: command not found
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 15: syntax error near unexpected token `('
+/zhome/71/c/146676/.lsbatch/1750145267.25255485.shell: line 15: `det_corner_0 = np.array([detector_distance, -detector_size / 2., -detector_size / 2.])'
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@hpc.dtu.dk>
+Subject: Job 25255485: <NONAME> in cluster <dcc> Exited
+
+Job <NONAME> was submitted from host <n-62-11-22> by user <msaca> in cluster <dcc> at Tue Jun 17 09:27:47 2025
+Job was executed on host(s) <n-62-31-21>, in queue <hpc>, as user <msaca> in cluster <dcc> at Tue Jun 17 09:27:48 2025
+</zhome/71/c/146676> was used as the home directory.
+</zhome/71/c/146676/xrd_simulator/xrd_simulator/tests/end_to_end_tests> was used as the working directory.
+Started at Tue Jun 17 09:27:48 2025
+Terminated at Tue Jun 17 09:27:49 2025
+Results reported at Tue Jun 17 09:27:49 2025
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+import matplotlib.pyplot as plt
+import numpy as np
+from xrd_simulator.detector import Detector
+from xrd_simulator.polycrystal import Polycrystal
+from xrd_simulator.beam import Beam
+from xrd_simulator.motion import RigidBodyMotion
+from xrd_simulator.templates import get_uniform_powder_sample
+import multiprocessing
+import os
+import h5py
+
+pixel_size = 150.
+detector_size = pixel_size * 512
+detector_distance = 142938.28756189224
+det_corner_0 = np.array([detector_distance, -detector_size / 2., -detector_size / 2.])
+det_corner_1 = np.array([detector_distance, detector_size / 2., -detector_size / 2.])
+det_corner_2 = np.array([detector_distance, -detector_size / 2., detector_size / 2.])
+
+detector = Detector(pixel_size, pixel_size, det_corner_0, det_corner_1, det_corner_2)
+sample_bounding_radius = 0.00001 * detector_size
+# polycrystal = get_uniform_powder_sample(
+#     sample_bounding_radius=sample_bounding_radius,
+#     number_of_grains=2,
+#     unit_cell=[4.926, 4.926, 5.4189, 90., 100., 120.],
+#     sgname='P3221'
+# )
+# polycrystal.save('my_polycrystal', save_mesh_as_xdmf=False)
+polycrystal = Polycrystal.load('my_polycrystal.pc')
+print(polycrystal.mesh_lab.coord.shape)
+print(polycrystal.mesh_lab.coord[:5])  # show first 5 mesh points
+
+print(dir(polycrystal.mesh_lab))
+
+
+# orientation_lab = list(polycrystal.orientation_lab)
+# orientation_lab[0] = None  # set first grain to powder
+# polycrystal.orientation_lab = orientation_lab
+
+# polycrystal.save('my_polycrystal', save_mesh_as_xdmf=False)
+# import pyvista as pv
+# import meshio
+# # Load the tetrahedral mesh
+# mesh = meshio.read("my_polycrystal.xdmf")
+
+# # Convert to pyvista mesh
+# points = mesh.points
+# cells = mesh.cells_dict.get("tetra")
+# if cells is None:
+#     raise ValueError("No tetrahedral cells found.")
+
+
+(... more ...)
+------------------------------------------------------------
+
+Exited with exit code 2.
+
+Resource usage summary:
+
+    CPU time :                                   0.47 sec.
+    Max Memory :                                 -
+    Average Memory :                             -
+    Total Requested Memory :                     1024.00 MB
+    Delta Memory :                               -
+    Max Swap :                                   -
+    Max Processes :                              -
+    Max Threads :                                -
+    Run time :                                   8 sec.
+    Turnaround time :                            2 sec.
+
+The output (if any) is above this job summary.
+

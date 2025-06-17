@@ -113,11 +113,19 @@ class Beam:
 
         """
 
-        for vertex in vertices:
+        if vertices.ndim != 2 or vertices.shape[1] != 3 or vertices.shape[0] != 4:
+            print(f"Skipping malformed vertices array: shape={vertices.shape}, content={vertices}")
+            return None
+
+        for idx, vertex in enumerate(vertices):
+            vertex = np.asarray(vertex)
             if not self.contains(vertex):
                 break
         else:
-            return ConvexHull(vertices)  # Tetra completely contained by beam
+            return ConvexHull(vertices)
+
+
+
 
         poly_halfspace = ConvexHull(vertices).equations
         poly_halfspace = np.unique(poly_halfspace.round(decimals=6), axis=0)
