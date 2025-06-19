@@ -19,6 +19,7 @@ import dill
 from xfab import tools
 from xrd_simulator.scattering_unit import ScatteringUnit, ScatteringUnitPowder
 from xrd_simulator import utils, laue
+from scipy.spatial.transform import Rotation
 
 
 def _diffract(dict):
@@ -63,7 +64,7 @@ def _diffract(dict):
     number_of_elements = ecoord.shape[0]
 
     none_indices = [i for i, item in enumerate(orientation_lab) if item is None]
-    orientation_lab = [np.eye(3) if item is None else item for item in orientation_lab]
+    orientation_lab = [Rotation.random().as_matrix() if item is None else item for item in orientation_lab]
     orientation_lab = np.stack(orientation_lab, axis=0)
 
     rho_0_factor = np.float32(-beam.wave_vector.dot(rigid_body_motion.rotator.K2))
@@ -109,10 +110,38 @@ def _diffract(dict):
         miller_indices_reduced = miller_indices[~invalid_miller_mask]
         # Get all scattering vectors for all scatterers in a given phase
         G_0 = laue.get_G(orientation_lab[grain_index], eB[grain_index], miller_indices)
-        G_0_crystal = np.delete(G_0, none_indices, axis=0)
-        G_0_powder = G_0[none_indices]
+
+
+        # Debug comments. Need testing before removal
+        #print('Phases', phases)
+        #print('None indices', none_indices)
+        #print('Orientation lab', orientation_lab)
+        #print('Grain index', grain_index, grain_crystal_index, grain_powder_index)
+        #print('G0 shape', G_0.shape)
+        #print(mask)
+        #print('G0', G_0)
+
+
+
+        ##### I think the problem arises because there are now multiple phases, which was not the case before. Needs done:
+        # Check that the grain indices are correct. Check the size of G_0 is correct. When deleting the none indices, that lists could have changed
+        # length because we are picking out one phase.
+
+        ## One more thing: We need to make sure that we not only check for the first orientation_lab be none,when we do the transfrm. All those that are not none should be transformed
+        # i can use the none indices for this.
+
+        #print(none_indices)
+        where_none_and_mask = np.argwhere(~mask).ravel()
+        #print(grain_index)
+        #print('where_none_and_mask', where_none_and_mask)
+        #print('G0 shape', G_0.shape)
+        G_0_crystal = np.delete(G_0, where_none_and_mask, axis=0)
+        #print('G0 crystal shape', G_0_crystal.shape)
+        G_0_powder = G_0[where_none_and_mask]
+        #print('G0 powder shape', G_0_powder.shape)
         G_0_powder = G_0_powder[:,:,~invalid_miller_mask]
-        
+        #print('G0 powder shape', G_0_powder.shape)
+    
         # Now G_0 and rho_factors are sent before computation to save memory when diffracting many grains.
         reflection_index, time_values = (
             laue.find_solutions_to_tangens_half_angle_equation(
@@ -124,12 +153,15 @@ def _diffract(dict):
             )
         )
         bragg_angles = laue.get_bragg_angles(G_0_powder, beam.wavelength).ravel(order='C')
+        #print('Bragg angles', bragg_angles[:10])
+        #print(bragg_angles.shape)
         time_values_powder = np.zeros_like(bragg_angles)
 
         G_0_reflected = G_0_crystal.transpose(0, 2, 1)[
             reflection_index[0, :], reflection_index[1, :]
         ]
         abs_G_0_powder = np.linalg.norm(G_0_powder,axis=1).ravel(order='C')
+        #print(abs_G_0_powder.shape)
         del G_0
         # We now assemble the dataframes with the valid reflections for each grain and phase including time, hkl plane and G vector
 
@@ -165,6 +197,7 @@ def _diffract(dict):
         reflections_df_powder = pd.concat([reflections_df_powder, table_powder], axis=0).sort_values(
             by="Grain"
         )
+
 
     reflections_df = reflections_df[
         (0 < reflections_df["time"]) & (reflections_df["time"] < 1)
@@ -278,7 +311,7 @@ def _diffract(dict):
         for ei in range(reflections_np_powder.shape[0]):
             scattering_unit_powder = ScatteringUnitPowder(
                 ConvexHull(element_vertices_powder[ei]),
-                bragg_angles[ei],  # outgoing bragg angle
+                reflections_np_powder[ei, 4],  # outgoing bragg angle
                 beam.wave_vector,
                 beam.wavelength,
                 beam.polarization_vector,
@@ -327,17 +360,13 @@ def _diffract(dict):
 
 
 
-        ################################## CHECK THIS PART AFTER LUNCH ################################
-        ################################## CHECK THIS PART AFTER LUNCH ################################
-        ################################## CHECK THIS PART AFTER LUNCH ################################
-        ################################## CHECK THIS PART AFTER LUNCH ################################
         for ei in range(element_vertices_powder.shape[0]):
             scattering_region_powder = beam.intersect(element_vertices_powder[ei])
 
             if scattering_region_powder is not None:
                 scattering_unit_powder = ScatteringUnitPowder(
                     scattering_region_powder,
-                    bragg_angles[ei],
+                    reflections_np_powder[ei, 4],
                     beam.wave_vector,
                     beam.wavelength,
                     beam.polarization_vector,
@@ -552,11 +581,12 @@ class Polycrystal:
     def transform(self, rigid_body_motion, time):
         """Transform the polycrystal by performing a rigid body motion (translation + rotation)
 
-                This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
-                such as face normals etc. Likewise, it will update the per element crystal orientation
-                matrices (U) as well as the lab frame description of strain tensors.
-        tt`): Time between [0,1] at which to call the rigid body motion.
+        This function will update the polycrystal mesh (update in lab frame) with any dependent quantities,
+        such as face normals etc. Likewise, it will update the per element crystal orientation
+        matrices (U) as well as the lab frame description of strain tensors.
 
+        Parameters:
+            time (float): Time between [0,1] at which to call the rigid body motion.
         """
         self.mesh_lab.update(rigid_body_motion, time)
 
@@ -564,8 +594,10 @@ class Polycrystal:
             rigid_body_motion.rotation_angle * time
         )
 
-        if self.orientation_lab[0] is not None:
-            self.orientation_lab = np.matmul(Rot_mat, self.orientation_lab)
+        if self.orientation_lab is not None:
+            for i, U in enumerate(self.orientation_lab):
+                if U is not None:
+                    self.orientation_lab[i] = np.matmul(Rot_mat, U)
 
         self.strain_lab = np.matmul(np.matmul(Rot_mat, self.strain_lab), Rot_mat.T)
 
